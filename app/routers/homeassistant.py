@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -14,8 +15,8 @@ router = APIRouter(prefix="/homeassistant", tags=["homeassistant"])
 
 
 class HAEvent(BaseModel):
-    entity: str
-    value: str
+    entity_id: str
+    value: Decimal
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -28,15 +29,16 @@ async def ingest_event(
     try:
         await pool.execute(
             """
-            INSERT INTO ha_events (entity, value, timestamp)
-            VALUES ($1, $2, $3)
+            INSERT INTO measurements (timestamp, entity_id, value, source)
+            VALUES ($1, $2, $3, $4)
             """,
-            event.entity,
-            event.value,
             event.timestamp,
+            event.entity_id,
+            event.value,
+            app_name,
         )
     except Exception as exc:
-        msg = f"DB insert failed for ha_events: {exc}"
+        msg = f"DB insert failed for measurements: {exc}"
         logger.error(msg)
         await notify_error(msg)
         raise HTTPException(
@@ -44,5 +46,5 @@ async def ingest_event(
             detail="Internal server error",
         ) from exc
 
-    logger.info("ha_events insert — entity=%s origin=%s", event.entity, app_name)
+    logger.info("measurements insert — entity_id=%s source=%s", event.entity_id, app_name)
     return {"status": "ok"}
