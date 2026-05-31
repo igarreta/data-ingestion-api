@@ -26,6 +26,14 @@ async def ingest_event(
     app_name: str = Depends(verify_token),
 ) -> dict:
     pool = get_pool()
+
+    entity = await pool.fetchrow("SELECT id FROM entities WHERE id = $1", event.entity_id)
+    if entity is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unknown entity_id: {event.entity_id}",
+        )
+
     try:
         await pool.execute(
             """
