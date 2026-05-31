@@ -23,8 +23,67 @@ FastAPI gateway that receives data from homelab applications, validates it with 
 |---|---|
 | **API host** | Cygnus — CT 202, unprivileged LXC, Podman, `10.0.100.0/24` internal network |
 | **Database** | Castor — PostgreSQL at `10.0.100.11:5432`, database `homelab` |
+| **DB user** | `ingestion_api` — SELECT on `entities`, INSERT on `measurements` only |
 | **DB schema** | Managed manually on Castor — this API only validates and inserts, never runs migrations |
 | **Deployment** | `podman-compose up -d --build` on Cygnus |
+
+---
+
+## Database schema
+
+### Design
+
+Generic time-series model: one row per measurement, keyed by `entity_id`.
+
+- `entities` — catalogue of known entities, managed manually by the sysadmin.
+- `measurements` — append-only table of numeric measurements.
+
+`entity_id` examples: `bomba_agua.run_secs`, `sensor.temperatura_exterior`
+
+The API validates that `entity_id` exists in `entities` before inserting; unknown entities return 422.
+
+### Tables
+
+```sql
+CREATE TABLE entities (
+    id          TEXT PRIMARY KEY,
+    unit        TEXT,
+    description TEXT,
+    device      TEXT
+);
+
+CREATE TABLE measurements (
+    id          BIGSERIAL PRIMARY KEY,
+    timestamp   TIMESTAMPTZ NOT NULL,
+    entity_id   TEXT NOT NULL REFERENCES entities(id),
+    value       NUMERIC NOT NULL,
+    source      TEXT
+);
+
+CREATE INDEX idx_measurements_entity_time
+    ON measurements (entity_id, timestamp DESC);
+```
+
+Migration script: `db/migrations/001_initial_schema.sql`
+
+### Adding a new entity
+
+Entities are created manually on Castor:
+
+```sql
+INSERT INTO entities (id, unit, description, device)
+VALUES ('bomba_agua.run_secs', 'seconds', 'Duración de encendido', 'bomba_agua');
+```
+
+### DB permissions
+
+```sql
+GRANT CONNECT ON DATABASE homelab TO ingestion_api;
+GRANT USAGE ON SCHEMA public TO ingestion_api;
+GRANT SELECT ON TABLE entities TO ingestion_api;
+GRANT INSERT ON TABLE measurements TO ingestion_api;
+GRANT USAGE ON SEQUENCE measurements_id_seq TO ingestion_api;
+```
 
 ---
 
@@ -39,7 +98,10 @@ app/
   logging_config.py  RotatingFileHandler (10 MB, 7 backups) + console handler
   notifications.py   notify_error(msg) — sends Pushover message to iphoneRSI on 500 errors
   routers/
-    homeassistant.py POST /homeassistant/events → inserts into ha_events table
+    homeassistant.py POST /homeassistant/events → validates entity_id, inserts into measurements
+db/
+  migrations/
+    001_initial_schema.sql  DDL for entities and measurements tables
 ```
 
 ---
@@ -49,10 +111,11 @@ app/
 ### Adding a new domain endpoint
 
 Copy `app/routers/homeassistant.py` as a template:
-1. Define a Pydantic model for the request body
-2. Write the `INSERT` query for the target table on Castor
-3. Call `notify_error()` before raising a 500 HTTPException
-4. Include the router in `app/main.py`
+1. Define a Pydantic model with `entity_id` (str), `value` (Decimal), `timestamp` (datetime)
+2. Validate that `entity_id` exists in `entities` — return 422 if not found
+3. Insert into `measurements` with `source` populated from the auth token
+4. Call `notify_error()` before raising a 500 HTTPException
+5. Include the router in `app/main.py`
 
 ### Auth
 
@@ -62,7 +125,7 @@ All routes use `verify_token` as a FastAPI `Depends`. It reads `APP_TOKEN_<NAME>
 
 ```python
 except Exception as exc:
-    msg = f"DB insert failed for <table>: {exc}"
+    msg = f"DB insert failed for measurements: {exc}"
     logger.error(msg)
     await notify_error(msg)
     raise HTTPException(status_code=500, detail="Internal server error") from exc
@@ -70,28 +133,11 @@ except Exception as exc:
 
 ### Logging
 
-Use `logger = logging.getLogger(__name__)` in every module. Log each successful insert at `INFO` level including entity/origin. Do not log sensitive values.
+Use `logger = logging.getLogger(__name__)` in every module. Log each successful insert at `INFO` level including `entity_id` and `source`. Do not log sensitive values.
 
 ### Tokens
 
 One env var per client app: `APP_TOKEN_HOMEASSISTANT`, `APP_TOKEN_OTRAAPP`, etc. Revoke by removing the var and restarting.
-
----
-
-## Database tables
-
-### `ha_events` (Home Assistant)
-
-Suggested schema to create on Castor:
-
-```sql
-CREATE TABLE ha_events (
-    id        BIGSERIAL PRIMARY KEY,
-    entity    TEXT        NOT NULL,
-    value     TEXT        NOT NULL,
-    timestamp TIMESTAMPTZ NOT NULL
-);
-```
 
 ---
 
@@ -101,3 +147,4 @@ CREATE TABLE ha_events (
 - Expose DB credentials to client applications
 - Catch exceptions silently without logging and notifying
 - Add business logic to `main.py` — keep it to app wiring only
+- Insert into `entities` from the API — the catalogue is managed manually
