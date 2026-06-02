@@ -151,17 +151,20 @@ Entity IDs follow the Home Assistant format: `{domain}.{object_id}`.
 
 **Examples:**
 
-| entity_id | unit | description |
-|---|---|---|
-| `sensor.bomba_agua_run_secs` | seconds | Segundos que funcionó la bomba |
-| `sensor.barrera_tiempo_baja_secs` | seconds | Segundos que la barrera estuvo baja |
-| `sensor.temperatura_exterior` | °C | Temperatura exterior |
-| `binary_sensor.bomba_agua_estado` | — | Estado actual de la bomba |
+| entity_id | unit | description | device |
+|---|---|---|---|
+| `sensor.bomba_agua_run_secs` | seconds | Tiempo de encendido de la bomba de agua en segundos | bomba_agua |
+| `sensor.barrera_cruce_ferroviario_secs` | seconds | Tiempo barrera baja en segundos | barrera_cruce_ferroviario |
+| `sensor.barrera_tiempo_baja_secs` | seconds | Segundos que la barrera estuvo baja | — |
+| `sensor.temperatura_exterior` | °C | Temperatura exterior | — |
+| `binary_sensor.bomba_agua_estado` | — | Estado actual de la bomba | bomba_agua |
+| `sensor.test_api` | — | Entidad para probar la API | — |
 
 **Rules:**
 - The `source` field in `measurements` records which app sent the data — domain does not encode the origin.
 - If an entity mirrors one in Home Assistant, use the same `entity_id` so they correlate naturally.
 - Never use a device name as the domain (e.g. `bomba_agua.run_secs` is invalid).
+- When the HA origin entity uses a non-listed domain (`switch`, `input_boolean`, etc.), map to the semantically correct domain: `sensor` for numeric values, `binary_sensor` for boolean states.
 
 ### Tokens
 
