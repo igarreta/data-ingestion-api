@@ -38,7 +38,7 @@ Generic time-series model: one row per measurement, keyed by `entity_id`.
 - `entities` — catalogue of known entities, managed manually by the sysadmin.
 - `measurements` — append-only table of numeric measurements.
 
-`entity_id` examples: `bomba_agua.run_secs`, `sensor.temperatura_exterior`
+`entity_id` format: `{domain}.{device}_{metric}` — e.g. `sensor.bomba_agua_run_secs`, `sensor.temperatura_exterior`
 
 The API validates that `entity_id` exists in `entities` before inserting; unknown entities return 422.
 
@@ -72,7 +72,7 @@ Entities are created manually on Castor:
 
 ```sql
 INSERT INTO entities (id, unit, description, device)
-VALUES ('bomba_agua.run_secs', 'seconds', 'Duración de encendido', 'bomba_agua');
+VALUES ('sensor.bomba_agua_run_secs', 'seconds', 'Segundos que funcionó la bomba', 'bomba_agua');
 ```
 
 ### DB permissions
@@ -134,6 +134,34 @@ except Exception as exc:
 ### Logging
 
 Use `logger = logging.getLogger(__name__)` in every module. Log each successful insert at `INFO` level including `entity_id` and `source`. Do not log sensitive values.
+
+### Entity naming convention
+
+Entity IDs follow the Home Assistant format: `{domain}.{object_id}`.
+
+**Allowed domains:**
+
+| Domain | Use |
+|---|---|
+| `sensor` | Numeric read-only measurements: duration, temperature, energy, derived counters |
+| `binary_sensor` | Boolean states: on/off, open/closed, present/absent |
+| `counter` | Integer counters that increment discretely (not duration) |
+
+**Object ID:** `{device}_{metric}` in snake_case, all lowercase.
+
+**Examples:**
+
+| entity_id | unit | description |
+|---|---|---|
+| `sensor.bomba_agua_run_secs` | seconds | Segundos que funcionó la bomba |
+| `sensor.barrera_tiempo_baja_secs` | seconds | Segundos que la barrera estuvo baja |
+| `sensor.temperatura_exterior` | °C | Temperatura exterior |
+| `binary_sensor.bomba_agua_estado` | — | Estado actual de la bomba |
+
+**Rules:**
+- The `source` field in `measurements` records which app sent the data — domain does not encode the origin.
+- If an entity mirrors one in Home Assistant, use the same `entity_id` so they correlate naturally.
+- Never use a device name as the domain (e.g. `bomba_agua.run_secs` is invalid).
 
 ### Tokens
 
