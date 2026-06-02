@@ -11,5 +11,7 @@ services:
       - "8000:8000"
     env_file:
       - .env
+      - /home/rsi/etc/pushover.env
     volumes:
+      - ./app:/app/app:ro
       - ./logs:/app/logs
