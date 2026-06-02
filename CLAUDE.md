@@ -27,6 +27,19 @@ FastAPI gateway that receives data from homelab applications, validates it with 
 | **DB schema** | Managed manually on Castor — this API only validates and inserts, never runs migrations |
 | **Deployment** | `podman-compose up -d --build` on Cygnus |
 
+### Reloading `.env`
+
+`env_file` is read only when the container is **created**, not on restart. After editing `.env` (tokens, DB credentials), `podman restart` will keep serving the **old** values — the container must be recreated:
+
+```bash
+cd ~/data-ingestion-api
+sudo podman compose up -d --force-recreate
+```
+
+Notes:
+- Use `sudo podman compose` (delegates to the `podman` binary), **not** `sudo podman-compose` — on Cygnus passwordless sudo only covers `/usr/bin/podman`.
+- The compose pod has no infra container (`--infra=false`), so the published port lives on the `api` container itself. Don't `rm`/recreate that container by hand without re-adding `-p 8000:8000`; let compose manage it.
+
 ---
 
 ## Database schema
@@ -119,7 +132,7 @@ Copy `app/routers/homeassistant.py` as a template:
 
 ### Auth
 
-All routes use `verify_token` as a FastAPI `Depends`. It reads `APP_TOKEN_<NAME>` env vars at request time — add/remove tokens by editing `.env` and restarting the container.
+All routes use `verify_token` as a FastAPI `Depends`. It reads `APP_TOKEN_<NAME>` env vars at request time — add/remove tokens by editing `.env` and recreating the container (see [Reloading `.env`](#reloading-env)).
 
 ### Error handling pattern
 
@@ -168,7 +181,7 @@ Entity IDs follow the Home Assistant format: `{domain}.{object_id}`.
 
 ### Tokens
 
-One env var per client app: `APP_TOKEN_HOMEASSISTANT`, `APP_TOKEN_OTRAAPP`, etc. Revoke by removing the var and restarting.
+One env var per client app: `APP_TOKEN_HOMEASSISTANT`, `APP_TOKEN_OTRAAPP`, etc. Revoke by removing the var and recreating the container (see [Reloading `.env`](#reloading-env)).
 
 ---
 
