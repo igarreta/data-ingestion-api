@@ -39,6 +39,8 @@ sudo podman compose up -d --force-recreate
 Notes:
 - Use `sudo podman compose` (delegates to the `podman` binary), **not** `sudo podman-compose` — on Cygnus passwordless sudo only covers `/usr/bin/podman`.
 - The compose pod has no infra container (`--infra=false`), so the published port lives on the `api` container itself. Don't `rm`/recreate that container by hand without re-adding `-p 8000:8000`; let compose manage it.
+- Pushover credentials (`PUSHOVER_TOKEN`, `PUSHOVER_USER`) live in `/home/rsi/etc/pushover.env` on Cygnus, not in the app `.env`.
+- `app/` and `.env` are **not baked into the image** — they are mounted as read-only volumes at runtime. The `Containerfile` only installs Python dependencies.
 
 ---
 
