@@ -38,12 +38,13 @@ POST http://192.168.1.3:8000/homeassistant/events
 |---|---|---|---|
 | `entity_id` | string | yes | Must be exactly `sensor.barrera_cruce_ferroviario_secs` |
 | `value` | number | yes | Seconds the barrier was down (e.g. `47.5`) |
-| `timestamp` | string (ISO-8601) | no | Defaults to server time (UTC) on receipt |
+| `timestamp` | string (ISO-8601) | no | Time when barrera went down |
 
 ```json
 {
   "entity_id": "sensor.barrera_cruce_ferroviario_secs",
-  "value": 47.5
+  "value": 47.5,
+  "timestamp": "2026-05-31T12:30:30"
 }
 ```
 
@@ -58,7 +59,7 @@ measured duration of that cycle in seconds.
 curl -X POST http://192.168.1.3:8000/homeassistant/events \
   -H "Authorization: Bearer $APP_TOKEN_HOMEASSISTANT" \
   -H "Content-Type: application/json" \
-  -d '{"entity_id":"sensor.barrera_cruce_ferroviario_secs","value":47.5}'
+  -d '{"entity_id":"sensor.barrera_cruce_ferroviario_secs","value":47.5,"timestamp": "2026-05-31T12:30:30"}'
 ```
 
 ### Home Assistant `rest_command`
@@ -72,7 +73,7 @@ rest_command:
       Authorization: !secret data_ingestion_api_token
       Content-Type: application/json
     payload: >
-      {"entity_id":"sensor.barrera_cruce_ferroviario_secs","value":{{ value }}}
+      {"entity_id":"sensor.barrera_cruce_ferroviario_secs","value":{{ value }},"timestamp": "2026-05-31T12:30:30"}
     content_type: application/json
 ```
 
