@@ -170,7 +170,6 @@ Entity IDs follow the Home Assistant format: `{domain}.{object_id}`.
 |---|---|---|---|
 | `sensor.bomba_agua_run_secs` | seconds | Tiempo de encendido de la bomba de agua en segundos | bomba_agua |
 | `sensor.barrera_cruce_ferroviario_secs` | seconds | Tiempo barrera baja en segundos | barrera_cruce_ferroviario |
-| `sensor.barrera_tiempo_baja_secs` | seconds | Segundos que la barrera estuvo baja | — |
 | `sensor.temperatura_exterior` | °C | Temperatura exterior | — |
 | `binary_sensor.bomba_agua_estado` | — | Estado actual de la bomba | bomba_agua |
 | `sensor.test_api` | — | Entidad para probar la API | — |
